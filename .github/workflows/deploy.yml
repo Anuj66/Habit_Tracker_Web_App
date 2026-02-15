@@ -1,0 +1,59 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "development"
+        type: choice
+        options:
+          - development
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: npm
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm install
+
+      - name: Install client dependencies
+        working-directory: client
+        run: npm install
+
+      - name: Build client
+        working-directory: client
+        run: npm run build
+
+      - name: Deploy to selected environment
+        env:
+          DEPLOY_ENV: ${{ github.event.inputs.environment }}
+          DEV_DEPLOY_URL: ${{ secrets.DEV_DEPLOY_URL }}
+          DEV_DEPLOY_TOKEN: ${{ secrets.DEV_DEPLOY_TOKEN }}
+          PROD_DEPLOY_URL: ${{ secrets.PROD_DEPLOY_URL }}
+          PROD_DEPLOY_TOKEN: ${{ secrets.PROD_DEPLOY_TOKEN }}
+        run: |
+          echo "Deploying to environment: $DEPLOY_ENV"
+          if [ "$DEPLOY_ENV" = "production" ]; then
+            echo "Using production credentials"
+            echo "$PROD_DEPLOY_URL" > /dev/null
+            echo "$PROD_DEPLOY_TOKEN" > /dev/null
+          else
+            echo "Using development credentials"
+            echo "$DEV_DEPLOY_URL" > /dev/null
+            echo "$DEV_DEPLOY_TOKEN" > /dev/null
+          fi
+

@@ -1,0 +1,23 @@
+{
+  "name": "habit-tracker-web-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "lint": "npm run lint --workspace server && npm run lint --workspace client",
+    "test": "npm run test --workspace server && npm run test --workspace client",
+    "build": "npm run build --workspace client",
+    "semantic-release": "semantic-release"
+  },
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "devDependencies": {
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^11.0.1",
+    "@semantic-release/release-notes-generator": "^14.0.1",
+    "semantic-release": "^24.0.0"
+  }
+}

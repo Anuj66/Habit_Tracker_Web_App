@@ -8,10 +8,6 @@ const HabitList = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
-  useEffect(() => {
-    fetchHabits();
-  }, []);
-
   const fetchHabits = async () => {
     try {
       const response = await getHabits();
@@ -30,6 +26,10 @@ const HabitList = () => {
       console.error('Error fetching data:', error);
     }
   };
+
+  useEffect(() => {
+    fetchHabits();
+  }, []);
 
   const handleAddHabit = async (e) => {
     e.preventDefault();

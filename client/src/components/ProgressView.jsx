@@ -88,10 +88,6 @@ const ProgressView = () => {
   const [habits, setHabits] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const fetchData = async () => {
     try {
       const habitsRes = await getHabits();
@@ -114,6 +110,10 @@ const ProgressView = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   if (loading) return <div style={{padding: '20px'}}>Loading progress...</div>;
 
