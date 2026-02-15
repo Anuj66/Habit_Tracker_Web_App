@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: server-dev
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server:/app/server
+    environment:
+      - NODE_ENV=development
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: client-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app/client
+    environment:
+      - VITE_API_URL=http://localhost:5000/api
+    depends_on:
+      - server
+
