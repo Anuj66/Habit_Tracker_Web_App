@@ -10,6 +10,15 @@ services:
       - "5000:5000"
     environment:
       - NODE_ENV=development
+      - CLIENT_ORIGIN=http://localhost:5173
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+      - GITHUB_REDIRECT_URI=http://localhost:5000/api/auth/github/callback
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=http://localhost:5000/api/auth/google/callback
 
   client:
     build:

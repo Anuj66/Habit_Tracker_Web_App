@@ -86,6 +86,25 @@ const createPasswordResetTokensTable = `
   )
 `;
 
+const createErrorEventsTable = `
+  CREATE TABLE IF NOT EXISTS error_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    level TEXT NOT NULL,
+    category TEXT NOT NULL,
+    status_code INTEGER,
+    error_code TEXT,
+    message TEXT,
+    details TEXT,
+    path TEXT,
+    method TEXT,
+    request_id TEXT,
+    user_id INTEGER,
+    environment TEXT,
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
+  )
+`;
+
 db.exec(createHabitsTable);
 db.exec(createTrackingTable);
 db.exec(createSuggestionsTable);
@@ -93,5 +112,6 @@ db.exec(createUsersTable);
 db.exec(createAuthIdentitiesTable);
 db.exec(createEmailVerificationTokensTable);
 db.exec(createPasswordResetTokensTable);
+db.exec(createErrorEventsTable);
 
 module.exports = db;

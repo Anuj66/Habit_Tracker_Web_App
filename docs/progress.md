@@ -101,6 +101,35 @@
 - Gamification (streaks, badges, achievements).
 - Additional analytics and reporting dashboards.
 - More granular habit configuration (per-day schedules, priorities).
+- Centralized Error Handling and Notification System
+
+### Centralized Error Handling and Notification System
+
+Design and implement a generic, application-wide error handling system that provides consistent behavior across the backend and frontend:
+
+- Introduce a single centralized error handler on the server that intercepts all uncaught errors from routes, middleware, and async handlers.
+- Standardize error response payloads (for example: `statusCode`, `errorCode`, `category`, `message`, `details`, `requestId`, `timestamp`) to ensure clients can reliably parse and react to failures.
+- Categorize errors by HTTP status group:
+  - 4xx client errors (validation failures, authentication/authorization problems, missing resources, bad requests).
+  - 5xx server errors (unexpected exceptions, dependency failures, internal processing issues).
+- Define a mapping layer that converts low-level error details into user-friendly, localized-safe messages while hiding sensitive implementation details from the end user.
+- Log all errors automatically on the server:
+  - Always log full technical details (stack traces, request metadata) to the console in development.
+  - Provide hooks for sending structured error events to an external monitoring/logging provider in staging/production.
+- Implement a client-side toast notification system that:
+  - Listens for standardized error responses and network failures from the API client layer.
+  - Displays contextual toast messages (e.g., warning vs error styling) based on error category (4xx vs 5xx).
+  - Allows users to dismiss notifications manually and auto-dismisses transient toasts after a configurable timeout.
+  - Avoids flooding the user with repeated identical messages by deduplicating or throttling similar toasts.
+- Ensure the system gracefully handles:
+  - Network timeouts and connectivity issues.
+  - Server unavailability (e.g., 503, connection refused).
+  - Request validation errors with field-level feedback where appropriate.
+  - Unexpected exceptions, surfacing a generic fallback message while still logging full details for developers.
+- Maintain consistent UI/UX patterns across the application:
+  - Reuse the same toast styling, placement, and animation for all error notifications.
+  - Provide clear visual distinction between error severity levels (info, warning, error, critical).
+  - Ensure accessibility (ARIA roles, screen reader announcements, sufficient contrast) for all toast messages.
 
 ## Authentication Implementation Status
 
