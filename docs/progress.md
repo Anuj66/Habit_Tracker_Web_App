@@ -96,9 +96,97 @@
     - Habit data persists inside the container across requests.
 
 ## Future Scope / Enhancements
-- User Authentication (Login/Signup).
 - Cloud Database (PostgreSQL/MongoDB) for multi-device access.
 - Notifications/Reminders.
 - Gamification (streaks, badges, achievements).
 - Additional analytics and reporting dashboards.
 - More granular habit configuration (per-day schedules, priorities).
+
+## Authentication Implementation Status
+
+- 2026-02-21 10:45:00 - Added `users`, `auth_identities`, `email_verification_tokens`, and `password_reset_tokens` tables to the SQLite schema.
+- 2026-02-21 10:50:00 - Implemented backend authentication router with:
+  - Traditional email/password registration and login (bcrypt password hashing, account lockout on repeated failures, JWT-based session cookie).
+  - Email verification workflow using time-limited verification tokens.
+  - Password reset workflow using time-limited reset tokens.
+  - Google OAuth 2.0 integration (authorization code flow, profile retrieval, user provisioning/linking).
+  - GitHub OAuth 2.0 integration (`user:email` scope, profile and email retrieval, user provisioning/linking).
+  - Unified user identity model via `users` and `auth_identities` tables.
+- 2026-02-21 11:05:00 - Added CSRF protection (cookie-based tokens with `x-csrf-token` header) and rate limiting for all `/api/auth` endpoints.
+- 2026-02-21 11:15:00 - Implemented frontend authentication flows in React:
+  - Responsive login page with email/password, Google, and GitHub sign-in options.
+  - Registration page with password confirmation and feedback messaging.
+  - Email verification handling page that consumes `token` query parameter.
+  - Password reset request and confirm pages using reset tokens.
+  - Auth-aware layout that shows the current user email and supports sign out.
+- 2026-02-21 11:30:00 - Added automated tests for core authentication flows (registration, email verification, login, CSRF enforcement) using Jest and Supertest on the backend.
+
+## Authentication Setup Instructions
+
+### 1. Environment Variables
+
+Configure the following environment variables for the server (for example in a `.env` file loaded by your process manager or shell):
+
+- `JWT_SECRET` – strong random secret for signing JWT access tokens.
+- `JWT_EXPIRES_IN` – optional; JWT lifetime (for example `1h`).
+- `CLIENT_ORIGIN` – frontend origin for redirects and CORS (default: `http://localhost:5173`).
+
+Google OAuth:
+
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI` (default: `http://localhost:5000/api/auth/google/callback`)
+
+GitHub OAuth:
+
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `GITHUB_REDIRECT_URI` (default: `http://localhost:5000/api/auth/github/callback`)
+
+### 2. Google OAuth Configuration
+
+1. Go to the Google Cloud Console and create an OAuth 2.0 Client ID (Web application).
+2. Configure authorized redirect URI:
+   - `http://localhost:5000/api/auth/google/callback` (for local development).
+3. Copy the client ID and secret into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
+4. Ensure the consent screen is configured with your application name and scopes `openid`, `email`, and `profile`.
+
+### 3. GitHub OAuth Configuration
+
+1. Create a new OAuth App in GitHub settings.
+2. Set the authorization callback URL:
+   - `http://localhost:5000/api/auth/github/callback` (for local development).
+3. Request scope `user:email` to read primary and verified email addresses.
+4. Copy the client ID and secret into `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET`.
+
+### 4. Traditional Authentication Usage
+
+1. Registration:
+   - Users register with email, optional name, and password via the `/register` page.
+   - Passwords are hashed with bcrypt before storing in the `users` table.
+2. Email verification:
+   - After registration, an email verification token is generated and stored with an expiry.
+   - In development, the raw token is returned in the API response for manual testing.
+   - The verify email page expects a `token` query parameter (for example `/verify-email?token=...`).
+3. Login:
+   - Login requires a verified email and correct password.
+   - Failed login attempts are tracked and accounts are locked temporarily after repeated failures.
+   - A short-lived JWT is issued and stored in an HTTP-only `auth_token` cookie.
+4. Password reset:
+   - Users request a reset from `/reset-password` with their email.
+   - A time-limited reset token is created and (in development) returned in the API response.
+   - The reset confirmation page expects a `token` query parameter (for example `/reset-password/confirm?token=...`).
+
+### 5. Frontend Authentication Flows
+
+- Login/Registration:
+  - New pages under `/login` and `/register` provide email/password flows and OAuth entry points.
+  - The React app includes an `AuthProvider` and `RequireAuth` wrapper to protect habit routes.
+- OAuth:
+  - Google and GitHub buttons redirect to backend OAuth endpoints:
+    - `http://localhost:5000/api/auth/google`
+    - `http://localhost:5000/api/auth/github`
+  - On success, users are redirected back to `CLIENT_ORIGIN` with an authenticated session cookie.
+- Session and CSRF:
+  - The Axios client is configured with `withCredentials: true` and calls `/api/auth/csrf` to obtain CSRF tokens for form submissions.
+  - All sensitive auth mutations include the `x-csrf-token` header.

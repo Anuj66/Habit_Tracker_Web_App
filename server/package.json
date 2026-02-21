@@ -7,7 +7,7 @@
     "lint": "eslint .",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
-    "test": "node -e \"console.log('No automated tests defined yet')\""
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
@@ -16,10 +16,18 @@
   "dependencies": {
     "better-sqlite3": "^12.6.2",
     "body-parser": "^2.2.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
-    "express": "^5.2.1"
+    "debug": "^4.3.4",
+    "express": "^5.2.1",
+    "express-rate-limit": "^7.5.0",
+    "csurf": "^1.11.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.1.1",
     "eslint": "^10.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
