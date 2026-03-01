@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, BarChart2, Moon, Sun, LogOut } from 'lucide-react';
+import { LayoutDashboard, BarChart2, Moon, Sun, LogOut, Settings } from 'lucide-react';
 import { getCsrfToken, logout } from '../api';
 
 const Layout = ({ useAuthHook }) => {
@@ -31,6 +31,7 @@ const Layout = ({ useAuthHook }) => {
   const navItems = [
     { path: '/', icon: LayoutDashboard, label: 'Daily Tracker' },
     { path: '/progress', icon: BarChart2, label: 'Progress' },
+    { path: '/settings', icon: Settings, label: 'Settings' },
   ];
 
   const handleLogout = async () => {

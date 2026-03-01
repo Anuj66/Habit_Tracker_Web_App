@@ -17,6 +17,30 @@ const init = () => {
   for (const query of queries) {
     db.exec(query);
   }
+
+  // Migration: Ensure reminder columns exist (idempotent via try-catch)
+  try {
+    db.exec("ALTER TABLE habits ADD COLUMN reminder_time TEXT");
+  } catch (err) {
+    // Column likely exists, ignore
+  }
+  try {
+    db.exec("ALTER TABLE habits ADD COLUMN reminder_enabled BOOLEAN DEFAULT 0");
+  } catch (err) {
+    // Column likely exists, ignore
+  }
+  
+  // Migration: Ensure user notification columns exist
+  try {
+    db.exec("ALTER TABLE users ADD COLUMN phone TEXT");
+  } catch (err) {}
+  try {
+    db.exec("ALTER TABLE users ADD COLUMN email_notifications_enabled BOOLEAN DEFAULT 1");
+  } catch (err) {}
+  try {
+    db.exec("ALTER TABLE users ADD COLUMN push_notifications_enabled BOOLEAN DEFAULT 1");
+  } catch (err) {}
+
   debug('Database schema initialized');
 
   return db;

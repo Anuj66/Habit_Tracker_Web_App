@@ -33,6 +33,22 @@ const init = () => {
       for (const query of queries) {
         await client.query(query);
       }
+      
+      // Migrations: Ensure reminder columns exist
+      try {
+        await client.query("ALTER TABLE habits ADD COLUMN IF NOT EXISTS reminder_time TEXT");
+        await client.query("ALTER TABLE habits ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN DEFAULT FALSE");
+        
+        // Notification columns
+        await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT");
+        await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications_enabled BOOLEAN DEFAULT TRUE");
+        await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS push_notifications_enabled BOOLEAN DEFAULT TRUE");
+        
+        debug('Migrations applied successfully');
+      } catch (err) {
+        console.error('Migration error:', err);
+      }
+
       debug('Database schema initialized');
     } catch (err) {
       console.error('Failed to initialize database schema:', err);

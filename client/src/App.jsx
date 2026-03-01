@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import Layout from './components/Layout'
 import HabitList from './components/HabitList'
 import ProgressView from './components/ProgressView'
+import NotificationSettings from './components/NotificationSettings'
 import LoginPage from './components/LoginPage'
 import RegisterPage from './components/RegisterPage'
 import VerifyEmailPage from './components/VerifyEmailPage'
@@ -84,6 +85,7 @@ function App() {
             >
               <Route index element={<HabitList />} />
               <Route path="progress" element={<ProgressView />} />
+              <Route path="settings" element={<NotificationSettings />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

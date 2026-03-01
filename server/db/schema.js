@@ -13,6 +13,8 @@ const getTableDefinitions = (dialect) => {
       name TEXT NOT NULL,
       description TEXT,
       frequency TEXT DEFAULT 'daily',
+      reminder_time TEXT,
+      reminder_enabled ${boolean} DEFAULT ${falseVal},
       created_at ${timestamp}
     )`,
     `CREATE TABLE IF NOT EXISTS tracking (
@@ -35,12 +37,25 @@ const getTableDefinitions = (dialect) => {
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT,
       name TEXT,
+      phone TEXT,
       email_verified ${boolean} DEFAULT ${falseVal},
+      email_notifications_enabled ${boolean} DEFAULT ${trueVal},
+      push_notifications_enabled ${boolean} DEFAULT ${trueVal},
       failed_login_attempts INTEGER DEFAULT 0,
       lockout_until ${isPg ? 'TIMESTAMP' : 'DATETIME'},
       last_login_at ${isPg ? 'TIMESTAMP' : 'DATETIME'},
       created_at ${timestamp},
       updated_at ${isPg ? 'TIMESTAMP' : 'DATETIME'}
+    )`,
+    `CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id ${autoIncrement},
+      user_id INTEGER NOT NULL,
+      endpoint TEXT NOT NULL,
+      p256dh TEXT NOT NULL,
+      auth TEXT NOT NULL,
+      created_at ${timestamp},
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+      UNIQUE(user_id, endpoint)
     )`,
     `CREATE TABLE IF NOT EXISTS auth_identities (
       id ${autoIncrement},

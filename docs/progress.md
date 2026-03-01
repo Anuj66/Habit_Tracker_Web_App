@@ -23,8 +23,24 @@
 - 2026-02-15 16:30:00 - Created `docker-compose.yml` for local development (server + client services).
 - 2026-03-01 10:00:00 - Refactored database layer to support both SQLite and PostgreSQL.
 - 2026-03-01 10:15:00 - Created `cloud_database_setup.md` with instructions for migrating to cloud-hosted PostgreSQL.
+- 2026-03-01 11:30:00 - Implemented Notifications/Reminders feature:
+  - Backend: Added `reminder_time` and `reminder_enabled` columns to `habits` table (SQLite & Postgres).
+  - Backend: Added PUT /api/habits/:id endpoint for updating habit details.
+  - Frontend: Added reminder settings to Create/Edit Habit forms.
+  - Frontend: Implemented client-side browser notifications using Notification API.
+- 2026-03-01 12:00:00 - Implemented Extended Notifications (Push, Email, SMS):
+  - Backend: Added support for Email (Nodemailer), Web Push (web-push), and SMS (mock service).
+  - Backend: Implemented `node-cron` scheduler for background checks.
+  - Backend: Created `/api/notifications` endpoints for preferences and subscriptions.
+  - Frontend: Added Service Worker for push notifications.
+  - Frontend: Added Notification Settings UI page.
+  - Database: Updated schema for user preferences and push subscriptions.
 
 ## In-Progress Work
+- Test the Reminders.
+- Need to update Habit_Tracker_Web_App with more robust long term directory structure for storing different files and their inter-connectivity.
+- Resolution on the UI bug for Light Mode/Dark Mode button.
+- Resolution on the UI bug for 'On Clicking Settings Page' nothing is appearing on the dashboard.
 - Analyze GitHub repository open pull requests to identify causes of high PR count.
 - Refine CI/CD pipeline behavior based on findings from open PR analysis.
 - Iterate on Docker configuration based on real-world deployment feedback (resource usage, scaling).
@@ -99,7 +115,7 @@
 
 ## Future Scope / Enhancements
 - [x] Cloud Database (PostgreSQL) for multi-device access (Completed 2026-03-01).
-- [ ] Notifications/Reminders.
+- [x] Notifications/Reminders (Completed 2026-03-01).
 - [ ] Gamification (streaks, badges, achievements).
 - [ ] Additional analytics and reporting dashboards.
 - [ ] More granular habit configuration (per-day schedules, priorities).

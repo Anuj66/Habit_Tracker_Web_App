@@ -9,7 +9,12 @@ const crypto = require('crypto')
 const debug = require('debug')('habit-tracker:server')
 const db = require('./database')
 const authRouter = require('./auth')
+const notificationsRouter = require('./routes/notifications')
 const { AppError, errorHandler } = require('./errors')
+const startScheduler = require('./scheduler')
+
+// Start the scheduler
+startScheduler()
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -37,6 +42,7 @@ const authLimiter = rateLimit({
 })
 
 app.use('/api/auth', authLimiter, authRouter)
+app.use('/api/notifications', notificationsRouter)
 
 // Habits Endpoints
 app.get('/api/habits', async (req, res, next) => {
@@ -56,6 +62,20 @@ app.post('/api/habits', async (req, res, next) => {
       [name, description || '', frequency || 'daily'],
     )
     res.json({ id: row.id, name, description, frequency })
+  } catch (err) {
+    next(err)
+  }
+})
+
+app.put('/api/habits/:id', async (req, res, next) => {
+  const { id } = req.params
+  const { name, description, frequency, reminder_time, reminder_enabled } = req.body
+  try {
+    await db.run(
+      'UPDATE habits SET name = ?, description = ?, frequency = ?, reminder_time = ?, reminder_enabled = ? WHERE id = ?',
+      [name, description, frequency, reminder_time, reminder_enabled, id],
+    )
+    res.json({ id, name, description, frequency, reminder_time, reminder_enabled })
   } catch (err) {
     next(err)
   }

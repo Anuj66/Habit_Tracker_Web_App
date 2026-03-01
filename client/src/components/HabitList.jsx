@@ -1,11 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { getHabits, createHabit, deleteHabit, getTracking, updateTracking } from '../api';
-import { Plus, Trash2, CheckCircle, Circle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { getHabits, createHabit, updateHabit, deleteHabit, getTracking, updateTracking } from '../api';
+import { Plus, Trash2, CheckCircle, Circle, Bell, BellOff, Edit2 } from 'lucide-react';
 
 const HabitList = () => {
   const [habits, setHabits] = useState([]);
   const [completedHabits, setCompletedHabits] = useState({});
-  const [newHabit, setNewHabit] = useState({ name: '', description: '', frequency: 'daily' });
+  const [newHabit, setNewHabit] = useState({ 
+    name: '', 
+    description: '', 
+    frequency: 'daily',
+    reminder_time: '',
+    reminder_enabled: false
+  });
+  const [editingId, setEditingId] = useState(null);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -32,16 +39,89 @@ const HabitList = () => {
     fetchHabits();
   }, []);
 
+  const lastNotifiedRef = useRef(null);
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const currentTime = `${hours}:${minutes}`;
+
+      if (lastNotifiedRef.current === currentTime) return;
+
+      let notificationSent = false;
+      habits.forEach(habit => {
+        if (habit.reminder_enabled && habit.reminder_time === currentTime) {
+          if (Notification.permission === 'granted') {
+            new Notification(`Time for: ${habit.name}`, {
+              body: habit.description || 'Keep up the good work!',
+              icon: '/vite.svg'
+            });
+            notificationSent = true;
+          }
+        }
+      });
+
+      if (notificationSent) {
+        lastNotifiedRef.current = currentTime;
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [habits]);
+
   const handleAddHabit = async (e) => {
     e.preventDefault();
     if (!newHabit.name) return;
     try {
-      await createHabit(newHabit);
-      setNewHabit({ name: '', description: '', frequency: 'daily' });
+      if (editingId) {
+        await updateHabit(editingId, newHabit);
+        setEditingId(null);
+      } else {
+        await createHabit(newHabit);
+      }
+      setNewHabit({ 
+        name: '', 
+        description: '', 
+        frequency: 'daily',
+        reminder_time: '',
+        reminder_enabled: false
+      });
       fetchHabits();
     } catch (error) {
-      console.error('Error adding habit:', error);
+      console.error('Error saving habit:', error);
     }
+  };
+
+  const handleEdit = (habit) => {
+    setNewHabit({
+      name: habit.name,
+      description: habit.description || '',
+      frequency: habit.frequency || 'daily',
+      reminder_time: habit.reminder_time || '',
+      reminder_enabled: habit.reminder_enabled || false
+    });
+    setEditingId(habit.id);
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setNewHabit({ 
+      name: '', 
+      description: '', 
+      frequency: 'daily',
+      reminder_time: '',
+      reminder_enabled: false
+    });
+    setEditingId(null);
   };
 
   const handleDeleteHabit = async (id) => {
@@ -73,7 +153,9 @@ const HabitList = () => {
       </div>
       
       <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
-        <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">Add New Habit</h3>
+        <h3 className="text-lg font-semibold text-slate-800 dark:text-white mb-4">
+          {editingId ? 'Edit Habit' : 'Add New Habit'}
+        </h3>
         <form onSubmit={handleAddHabit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -96,14 +178,46 @@ const HabitList = () => {
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
               />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Reminder Time</label>
+              <input 
+                type="time" 
+                value={newHabit.reminder_time} 
+                onChange={e => setNewHabit({...newHabit, reminder_time: e.target.value})}
+                className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+              />
+            </div>
+            <div className="flex items-center space-x-3 pt-8">
+              <input 
+                type="checkbox"
+                id="reminder_enabled"
+                checked={newHabit.reminder_enabled}
+                onChange={e => setNewHabit({...newHabit, reminder_enabled: e.target.checked})}
+                className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="reminder_enabled" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Enable Reminder
+              </label>
+            </div>
           </div>
-          <button 
-            type="submit" 
-            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors ml-auto"
-          >
-            <Plus size={20} />
-            Add Habit
-          </button>
+          <div className="flex items-center gap-3 justify-end">
+            {editingId && (
+              <button 
+                type="button"
+                onClick={handleCancelEdit}
+                className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            )}
+            <button 
+              type="submit" 
+              className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+            >
+              <Plus size={20} />
+              {editingId ? 'Update Habit' : 'Add Habit'}
+            </button>
+          </div>
         </form>
       </div>
 
@@ -155,6 +269,19 @@ const HabitList = () => {
                 <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 capitalize">
                   {habit.frequency}
                 </span>
+                {habit.reminder_enabled && (
+                  <div className="flex items-center text-slate-400" title={`Reminder at ${habit.reminder_time}`}>
+                    <Bell size={16} className="text-blue-500" />
+                    <span className="text-xs ml-1">{habit.reminder_time}</span>
+                  </div>
+                )}
+                <button 
+                  onClick={() => handleEdit(habit)}
+                  className="p-2 text-slate-400 hover:text-blue-500 transition-colors opacity-0 group-hover:opacity-100"
+                  aria-label="Edit habit"
+                >
+                  <Edit2 size={20} />
+                </button>
                 <button 
                   onClick={() => handleDeleteHabit(habit.id)}
                   className="p-2 text-slate-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"

@@ -62,6 +62,7 @@ api.interceptors.response.use(
 
 export const getHabits = () => api.get('/habits')
 export const createHabit = (habit) => api.post('/habits', habit)
+export const updateHabit = (id, habit) => api.put(`/habits/${id}`, habit)
 export const deleteHabit = (id) => api.delete(`/habits/${id}`)
 export const getTracking = (habitId) => api.get(`/tracking/${habitId}`)
 export const updateTracking = (habitId, date, completed) =>
