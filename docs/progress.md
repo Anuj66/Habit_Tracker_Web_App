@@ -21,6 +21,8 @@
 - 2026-02-15 16:00:00 - Created multi-stage Dockerfile for dev (client/server) and production builds.
 - 2026-02-15 16:15:00 - Added `.dockerignore` to optimize Docker build context size.
 - 2026-02-15 16:30:00 - Created `docker-compose.yml` for local development (server + client services).
+- 2026-03-01 10:00:00 - Refactored database layer to support both SQLite and PostgreSQL.
+- 2026-03-01 10:15:00 - Created `cloud_database_setup.md` with instructions for migrating to cloud-hosted PostgreSQL.
 
 ## In-Progress Work
 - Analyze GitHub repository open pull requests to identify causes of high PR count.
@@ -96,7 +98,7 @@
     - Habit data persists inside the container across requests.
 
 ## Future Scope / Enhancements
-- [ ] Cloud Database (PostgreSQL/MongoDB) for multi-device access.
+- [x] Cloud Database (PostgreSQL) for multi-device access (Completed 2026-03-01).
 - [ ] Notifications/Reminders.
 - [ ] Gamification (streaks, badges, achievements).
 - [ ] Additional analytics and reporting dashboards.

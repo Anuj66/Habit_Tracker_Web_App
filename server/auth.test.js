@@ -3,11 +3,11 @@ const app = require('./index');
 const db = require('./database');
 
 describe('Authentication flows', () => {
-  beforeAll(() => {
-    db.prepare('DELETE FROM email_verification_tokens').run();
-    db.prepare('DELETE FROM password_reset_tokens').run();
-    db.prepare('DELETE FROM auth_identities').run();
-    db.prepare('DELETE FROM users').run();
+  beforeAll(async () => {
+    await db.run('DELETE FROM email_verification_tokens');
+    await db.run('DELETE FROM password_reset_tokens');
+    await db.run('DELETE FROM auth_identities');
+    await db.run('DELETE FROM users');
   });
 
   test('register, verify email, and login with local credentials', async () => {

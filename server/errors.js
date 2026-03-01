@@ -45,7 +45,7 @@ const normalizeError = (err) => {
   })
 }
 
-const errorHandler = (err, req, res, next) => {
+const errorHandler = async (err, req, res, next) => {
   const normalized = normalizeError(err)
 
   const statusCode = normalized.httpStatus || 500
@@ -76,25 +76,25 @@ const errorHandler = (err, req, res, next) => {
   }
 
   try {
-    const stmt = db.prepare(
-      'INSERT INTO error_events (level, category, status_code, error_code, message, details, path, method, request_id, user_id, environment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    )
     const detailsJson = JSON.stringify({
       ...payloadDetails,
       stack: environment === 'development' ? err.stack : undefined,
     })
-    stmt.run(
-      normalized.level || (statusCode >= 500 ? 'error' : 'warn'),
-      category,
-      statusCode,
-      errorCode,
-      err.message || normalized.userMessage,
-      detailsJson,
-      req.path,
-      req.method,
-      requestId,
-      req.user && req.user.id ? req.user.id : null,
-      environment,
+    await db.run(
+      'INSERT INTO error_events (level, category, status_code, error_code, message, details, path, method, request_id, user_id, environment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        normalized.level || (statusCode >= 500 ? 'error' : 'warn'),
+        category,
+        statusCode,
+        errorCode,
+        err.message || normalized.userMessage,
+        detailsJson,
+        req.path,
+        req.method,
+        requestId,
+        req.user && req.user.id ? req.user.id : null,
+        environment,
+      ],
     )
   } catch (loggingError) {
     debug('Failed to log error event %o', loggingError)

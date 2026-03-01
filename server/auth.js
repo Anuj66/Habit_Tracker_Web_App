@@ -7,7 +7,7 @@ const db = require('./database');
 
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1h';
 const CSRF_COOKIE_NAME = 'csrf_secret';
 const AUTH_COOKIE_NAME = 'auth_token';
@@ -58,43 +58,45 @@ function clearAuthCookie(res) {
   res.clearCookie(AUTH_COOKIE_NAME);
 }
 
-function getUserById(id) {
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+async function getUserById(id) {
+  return db.get('SELECT * FROM users WHERE id = ?', [id]);
 }
 
-function getUserByEmail(email) {
-  return db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+async function getUserByEmail(email) {
+  return db.get('SELECT * FROM users WHERE email = ?', [email]);
 }
 
-function createUser({ email, passwordHash, name, emailVerified }) {
+async function createUser({ email, passwordHash, name, emailVerified }) {
   const stmt =
-    'INSERT INTO users (email, password_hash, name, email_verified, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)';
-  const info = db.prepare(stmt).run(email, passwordHash || null, name || null, emailVerified ? 1 : 0);
-  return getUserById(info.lastInsertRowid);
+    'INSERT INTO users (email, password_hash, name, email_verified, created_at, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) RETURNING *';
+  return db.get(stmt, [email, passwordHash || null, name || null, emailVerified ? 1 : 0]);
 }
 
-function updateUserLoginSuccess(userId) {
-  db.prepare(
+async function updateUserLoginSuccess(userId) {
+  await db.run(
     'UPDATE users SET failed_login_attempts = 0, lockout_until = NULL, last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-  ).run(userId);
+    [userId],
+  );
 }
 
-function recordFailedLogin(user) {
+async function recordFailedLogin(user) {
   const maxAttempts = 5;
   const lockoutMinutes = 15;
   const attempts = (user.failed_login_attempts || 0) + 1;
 
   if (attempts >= maxAttempts) {
     const lockoutUntil = new Date(Date.now() + lockoutMinutes * 60 * 1000).toISOString();
-    db.prepare(
+    await db.run(
       'UPDATE users SET failed_login_attempts = ?, lockout_until = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-    ).run(attempts, lockoutUntil, user.id);
+      [attempts, lockoutUntil, user.id],
+    );
     return { locked: true, lockoutUntil };
   }
 
-  db.prepare(
+  await db.run(
     'UPDATE users SET failed_login_attempts = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-  ).run(attempts, user.id);
+    [attempts, user.id],
+  );
   return { locked: false };
 }
 
@@ -107,32 +109,34 @@ function isUserLocked(user) {
   return lockoutUntil > now;
 }
 
-function createVerificationToken(userId) {
+async function createVerificationToken(userId) {
   const token = crypto.randomBytes(32).toString('hex');
   const tokenHash = bcrypt.hashSync(token, 10);
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-  db.prepare(
+  await db.run(
     'INSERT INTO email_verification_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
-  ).run(userId, tokenHash, expiresAt);
+    [userId, tokenHash, expiresAt],
+  );
   return token;
 }
 
-function createPasswordResetToken(userId) {
+async function createPasswordResetToken(userId) {
   const token = crypto.randomBytes(32).toString('hex');
   const tokenHash = bcrypt.hashSync(token, 10);
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-  db.prepare(
+  await db.run(
     'INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)',
-  ).run(userId, tokenHash, expiresAt);
+    [userId, tokenHash, expiresAt],
+  );
   return token;
 }
 
-function findValidVerificationToken(token) {
-  const candidates = db
-    .prepare(
-      'SELECT * FROM email_verification_tokens WHERE used = 0 AND datetime(expires_at) > datetime("now")',
-    )
-    .all();
+async function findValidVerificationToken(token) {
+  const now = new Date().toISOString();
+  const candidates = await db.all(
+    'SELECT * FROM email_verification_tokens WHERE used = 0 AND expires_at > ?',
+    [now],
+  );
   for (const candidate of candidates) {
     if (bcrypt.compareSync(token, candidate.token_hash)) {
       return candidate;
@@ -141,12 +145,12 @@ function findValidVerificationToken(token) {
   return null;
 }
 
-function findValidPasswordResetToken(token) {
-  const candidates = db
-    .prepare(
-      'SELECT * FROM password_reset_tokens WHERE used = 0 AND datetime(expires_at) > datetime("now")',
-    )
-    .all();
+async function findValidPasswordResetToken(token) {
+  const now = new Date().toISOString();
+  const candidates = await db.all(
+    'SELECT * FROM password_reset_tokens WHERE used = 0 AND expires_at > ?',
+    [now],
+  );
   for (const candidate of candidates) {
     if (bcrypt.compareSync(token, candidate.token_hash)) {
       return candidate;
@@ -188,7 +192,7 @@ function ensureJwtSecret(req, res) {
   return true;
 }
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   if (!ensureJwtSecret(req, res)) {
     return;
   }
@@ -199,7 +203,7 @@ function authMiddleware(req, res, next) {
   }
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    const user = getUserById(payload.sub);
+    const user = await getUserById(payload.sub);
     if (!user) {
       clearAuthCookie(res);
       res.status(401).json({ error: 'Unauthorized' });
@@ -225,21 +229,21 @@ router.post('/register', csrfProtection, async (req, res) => {
     return;
   }
 
-  const existing = getUserByEmail(email.trim().toLowerCase());
+  const existing = await getUserByEmail(email.trim().toLowerCase());
   if (existing) {
     res.status(409).json({ error: 'Email already in use' });
     return;
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = createUser({
+  const user = await createUser({
     email: email.trim().toLowerCase(),
     passwordHash,
     name: sanitizeName(name),
     emailVerified: false,
   });
 
-  const verificationToken = createVerificationToken(user.id);
+  const verificationToken = await createVerificationToken(user.id);
 
   res.json({
     user: { id: user.id, email: user.email, name: user.name, emailVerified: false },
@@ -255,7 +259,7 @@ router.post('/login', csrfProtection, async (req, res) => {
     return;
   }
 
-  const user = getUserByEmail(email.trim().toLowerCase());
+  const user = await getUserByEmail(email.trim().toLowerCase());
   if (!user || !user.password_hash) {
     res.status(401).json({ error: 'Invalid credentials' });
     return;
@@ -268,7 +272,7 @@ router.post('/login', csrfProtection, async (req, res) => {
 
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) {
-    const result = recordFailedLogin(user);
+    const result = await recordFailedLogin(user);
     if (result.locked) {
       res.status(423).json({ error: 'Account locked due to failed attempts' });
       return;
@@ -277,7 +281,7 @@ router.post('/login', csrfProtection, async (req, res) => {
     return;
   }
 
-  updateUserLoginSuccess(user.id);
+  await updateUserLoginSuccess(user.id);
 
   if (!user.email_verified) {
     res.status(403).json({ error: 'Email not verified' });
@@ -309,25 +313,26 @@ router.get('/me', authMiddleware, (req, res) => {
   });
 });
 
-router.post('/verify-email', csrfProtection, (req, res) => {
+router.post('/verify-email', csrfProtection, async (req, res) => {
   const { token } = req.body;
   if (typeof token !== 'string' || !token) {
     res.status(400).json({ error: 'Invalid token' });
     return;
   }
 
-  const record = findValidVerificationToken(token);
+  const record = await findValidVerificationToken(token);
   if (!record) {
     res.status(400).json({ error: 'Invalid or expired token' });
     return;
   }
 
-  db.prepare('UPDATE email_verification_tokens SET used = 1 WHERE id = ?').run(record.id);
-  db.prepare(
+  await db.run('UPDATE email_verification_tokens SET used = 1 WHERE id = ?', [record.id]);
+  await db.run(
     'UPDATE users SET email_verified = 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-  ).run(record.user_id);
+    [record.user_id],
+  );
 
-  const user = getUserById(record.user_id);
+  const user = await getUserById(record.user_id);
   if (!user) {
     res.status(400).json({ error: 'User no longer exists' });
     return;
@@ -349,20 +354,20 @@ router.post('/verify-email', csrfProtection, (req, res) => {
   });
 });
 
-router.post('/password-reset/request', csrfProtection, (req, res) => {
+router.post('/password-reset/request', csrfProtection, async (req, res) => {
   const { email } = req.body;
   if (!validateEmail(email)) {
     res.status(400).json({ error: 'Invalid email' });
     return;
   }
 
-  const user = getUserByEmail(email.trim().toLowerCase());
+  const user = await getUserByEmail(email.trim().toLowerCase());
   if (!user) {
     res.json({ success: true });
     return;
   }
 
-  const resetToken = createPasswordResetToken(user.id);
+  const resetToken = await createPasswordResetToken(user.id);
 
   res.json({ success: true, resetTokenPreview: resetToken });
 });
@@ -374,24 +379,25 @@ router.post('/password-reset/confirm', csrfProtection, async (req, res) => {
     return;
   }
 
-  const record = findValidPasswordResetToken(token);
+  const record = await findValidPasswordResetToken(token);
   if (!record) {
     res.status(400).json({ error: 'Invalid or expired token' });
     return;
   }
 
-  const user = getUserById(record.user_id);
+  const user = await getUserById(record.user_id);
   if (!user) {
     res.status(400).json({ error: 'User no longer exists' });
     return;
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 10);
-  db.prepare(
+  await db.run(
     'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-  ).run(passwordHash, user.id);
+    [passwordHash, user.id],
+  );
 
-  db.prepare('UPDATE password_reset_tokens SET used = 1 WHERE id = ?').run(record.id);
+  await db.run('UPDATE password_reset_tokens SET used = 1 WHERE id = ?', [record.id]);
 
   res.json({ success: true });
 });
@@ -462,9 +468,9 @@ router.get('/google/callback', async (req, res) => {
       return;
     }
 
-    let user = getUserByEmail(email);
+    let user = await getUserByEmail(email);
     if (!user) {
-      user = createUser({
+      user = await createUser({
         email,
         passwordHash: null,
         name: sanitizeName(profile.name || profile.given_name || ''),
@@ -472,11 +478,12 @@ router.get('/google/callback', async (req, res) => {
       });
     }
 
-    db.prepare(
-      'INSERT OR IGNORE INTO auth_identities (user_id, provider, provider_user_id) VALUES (?, ?, ?)',
-    ).run(user.id, 'google', profile.sub);
+    await db.run(
+      'INSERT INTO auth_identities (user_id, provider, provider_user_id) VALUES (?, ?, ?) ON CONFLICT (provider, provider_user_id) DO NOTHING',
+      [user.id, 'google', profile.sub],
+    );
 
-    updateUserLoginSuccess(user.id);
+    await updateUserLoginSuccess(user.id);
 
     if (!ensureJwtSecret(req, res)) {
       return;
@@ -565,9 +572,9 @@ router.get('/github/callback', async (req, res) => {
     }
 
     const email = primaryEmail.email.toLowerCase();
-    let user = getUserByEmail(email);
+    let user = await getUserByEmail(email);
     if (!user) {
-      user = createUser({
+      user = await createUser({
         email,
         passwordHash: null,
         name: sanitizeName(userData.name || userData.login || ''),
@@ -575,11 +582,12 @@ router.get('/github/callback', async (req, res) => {
       });
     }
 
-    db.prepare(
-      'INSERT OR IGNORE INTO auth_identities (user_id, provider, provider_user_id) VALUES (?, ?, ?)',
-    ).run(user.id, 'github', String(userData.id));
+    await db.run(
+      'INSERT INTO auth_identities (user_id, provider, provider_user_id) VALUES (?, ?, ?) ON CONFLICT (provider, provider_user_id) DO NOTHING',
+      [user.id, 'github', String(userData.id)],
+    );
 
-    updateUserLoginSuccess(user.id);
+    await updateUserLoginSuccess(user.id);
 
     if (!ensureJwtSecret(req, res)) {
       return;

@@ -1,8 +1,9 @@
+const path = require('path')
+require('dotenv').config({ path: path.join(__dirname, '../.env') })
 const express = require('express')
 const cors = require('cors')
 const bodyParser = require('body-parser')
 const cookieParser = require('cookie-parser')
-const path = require('path')
 const rateLimit = require('express-rate-limit')
 const crypto = require('crypto')
 const debug = require('debug')('habit-tracker:server')
@@ -38,30 +39,32 @@ const authLimiter = rateLimit({
 app.use('/api/auth', authLimiter, authRouter)
 
 // Habits Endpoints
-app.get('/api/habits', (req, res, next) => {
+app.get('/api/habits', async (req, res, next) => {
   try {
-    const habits = db.prepare('SELECT * FROM habits ORDER BY created_at DESC').all()
+    const habits = await db.all('SELECT * FROM habits ORDER BY created_at DESC')
     res.json(habits)
   } catch (err) {
     next(err)
   }
 })
 
-app.post('/api/habits', (req, res, next) => {
+app.post('/api/habits', async (req, res, next) => {
   const { name, description, frequency } = req.body
   try {
-    const stmt = db.prepare('INSERT INTO habits (name, description, frequency) VALUES (?, ?, ?)')
-    const info = stmt.run(name, description || '', frequency || 'daily')
-    res.json({ id: info.lastInsertRowid, name, description, frequency })
+    const row = await db.get(
+      'INSERT INTO habits (name, description, frequency) VALUES (?, ?, ?) RETURNING id',
+      [name, description || '', frequency || 'daily'],
+    )
+    res.json({ id: row.id, name, description, frequency })
   } catch (err) {
     next(err)
   }
 })
 
-app.delete('/api/habits/:id', (req, res, next) => {
+app.delete('/api/habits/:id', async (req, res, next) => {
   const { id } = req.params
   try {
-    db.prepare('DELETE FROM habits WHERE id = ?').run(id)
+    await db.run('DELETE FROM habits WHERE id = ?', [id])
     res.json({ message: 'Habit deleted' })
   } catch (err) {
     next(err)
@@ -69,43 +72,44 @@ app.delete('/api/habits/:id', (req, res, next) => {
 })
 
 // Tracking Endpoints
-app.get('/api/tracking', (req, res, next) => {
+app.get('/api/tracking', async (req, res, next) => {
   try {
-    const tracking = db.prepare('SELECT * FROM tracking').all()
+    const tracking = await db.all('SELECT * FROM tracking')
     res.json(tracking)
   } catch (err) {
     next(err)
   }
 })
 
-app.get('/api/tracking/:habitId', (req, res, next) => {
+app.get('/api/tracking/:habitId', async (req, res, next) => {
   const { habitId } = req.params
   try {
-    const tracking = db.prepare('SELECT * FROM tracking WHERE habit_id = ?').all(habitId)
+    const tracking = await db.all('SELECT * FROM tracking WHERE habit_id = ?', [habitId])
     res.json(tracking)
   } catch (err) {
     next(err)
   }
 })
 
-app.post('/api/tracking', (req, res, next) => {
+app.post('/api/tracking', async (req, res, next) => {
   const { habitId, date, completed } = req.body
   try {
-    const existing = db
-      .prepare('SELECT * FROM tracking WHERE habit_id = ? AND date = ?')
-      .get(habitId, date)
+    const existing = await db.get('SELECT * FROM tracking WHERE habit_id = ? AND date = ?', [
+      habitId,
+      date,
+    ])
 
     if (existing) {
-      db.prepare('UPDATE tracking SET completed = ? WHERE id = ?').run(
+      await db.run('UPDATE tracking SET completed = ? WHERE id = ?', [
         completed ? 1 : 0,
         existing.id,
-      )
+      ])
     } else {
-      db.prepare('INSERT INTO tracking (habit_id, date, completed) VALUES (?, ?, ?)').run(
+      await db.run('INSERT INTO tracking (habit_id, date, completed) VALUES (?, ?, ?)', [
         habitId,
         date,
         completed ? 1 : 0,
-      )
+      ])
     }
     res.json({ success: true })
   } catch (err) {
@@ -114,24 +118,27 @@ app.post('/api/tracking', (req, res, next) => {
 })
 
 // Suggestions Endpoints
-app.get('/api/suggestions/:habitId', (req, res, next) => {
+app.get('/api/suggestions/:habitId', async (req, res, next) => {
   const { habitId } = req.params
   try {
-    const suggestions = db
-      .prepare('SELECT * FROM suggestions WHERE habit_id = ? ORDER BY created_at DESC')
-      .all(habitId)
+    const suggestions = await db.all(
+      'SELECT * FROM suggestions WHERE habit_id = ? ORDER BY created_at DESC',
+      [habitId],
+    )
     res.json(suggestions)
   } catch (err) {
     next(err)
   }
 })
 
-app.post('/api/suggestions', (req, res, next) => {
+app.post('/api/suggestions', async (req, res, next) => {
   const { habitId, suggestion } = req.body
   try {
-    const stmt = db.prepare('INSERT INTO suggestions (habit_id, suggestion) VALUES (?, ?)')
-    const info = stmt.run(habitId, suggestion)
-    res.json({ id: info.lastInsertRowid, habitId, suggestion })
+    const row = await db.get(
+      'INSERT INTO suggestions (habit_id, suggestion) VALUES (?, ?) RETURNING id',
+      [habitId, suggestion],
+    )
+    res.json({ id: row.id, habitId, suggestion })
   } catch (err) {
     next(err)
   }
@@ -160,6 +167,7 @@ app.use(errorHandler)
 
 if (require.main === module) {
   app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`)
     debug(`Server running on http://localhost:${PORT}`)
   })
 }
